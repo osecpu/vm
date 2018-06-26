@@ -2,13 +2,6 @@
 
 class OsecpuBinary {
  public:
-  enum class Type {
-    kUnknown = 0,
-    kRevision1 = 1 << 1,
-    kRevision2 = 2 << 1,
-    kBackend = 0,
-    kFrontend = 1,
-  };
   OsecpuBinary() {}
   const static int bufSize = 1024 * 1024;
 
@@ -23,32 +16,31 @@ class OsecpuBinary {
     CheckBinType();
     return binByteSize;
   }
-  Type GetBinType() { return binType; }
+  uint8_t GetBinVersion() { return binVersion; }
+  bool GetIsFrontend() { return isFrontend; }
 
  private:
   uint8_t binBuf[bufSize];
   int binByteSize;
-  Type binType = Type::kUnknown;
-  void CheckBinType();
-};
-
-OsecpuBinary::Type operator|=(OsecpuBinary::Type &vL, OsecpuBinary::Type vR) {
-  return vL = static_cast<OsecpuBinary::Type>(static_cast<int>(vL) |
-                                              static_cast<int>(vR));
-}
-
-void OsecpuBinary::CheckBinType() {
-  binType = OsecpuBinary::Type::kUnknown;
-  if (binBuf[0] == 0x05) {
-    if (binBuf[1] == 0xE1) {
-      binType = OsecpuBinary::Type::kRevision1;
-      if (binBuf[2] != 0x00) binType |= OsecpuBinary::Type::kFrontend;
-    } else if (binBuf[1] == 0xE2) {
-      binType = OsecpuBinary::Type::kRevision2;
-      if (binBuf[2] != 0x00) binType |= OsecpuBinary::Type::kFrontend;
+  uint8_t binVersion = 0x00;
+  bool isFrontend;
+  void CheckBinType() {
+    if (binBuf[0] != 0x05) {
+      binVersion = 0x00;
+      return;
     }
+    switch (binBuf[1]) {
+      case 0xE1:
+      case 0xE2:
+        break;
+      default:
+        binVersion = 0x00;
+        return;
+    }
+    binVersion = binBuf[1];
+    isFrontend = binBuf[2] != 0x00;
   }
-}
+};
 
 int main(int argc, char *argv[]) {
   if (argc <= 1) {
@@ -65,7 +57,9 @@ int main(int argc, char *argv[]) {
     }
     OsecpuBinary osebin;
     osebin.Load(argv[2]);
-    std::cout << "Type: " << (int)osebin.GetBinType() << std::endl;
+    std::cout << osebin.GetBinVersion();
+    std::cout << "Type: " << osebin.GetBinVersion() << osebin.GetIsFrontend()
+              << std::endl;
     return 0;
   }
   std::cerr << "osecpu: Unknown command: " << argv[1] << std::endl;
